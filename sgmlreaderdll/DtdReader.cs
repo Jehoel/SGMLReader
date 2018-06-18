@@ -34,7 +34,7 @@ using System.Xml;
 
 namespace Sgml
 {
-	/// <summary>
+    /// <summary>
     /// Provides DTD parsing and support for the SgmlParser framework.
     /// </summary>
     public class SgmlDtd
@@ -44,6 +44,7 @@ namespace Sgml
         private Dictionary<string, Entity> m_entities;
         private StringBuilder m_sb;
         private Entity m_current;
+        private Boolean m_inDocType;
 
         /// <summary>
         /// Initialises a new instance of the <see cref="SgmlDtd"/> class.
@@ -65,7 +66,7 @@ namespace Sgml
         /// <summary>
         /// The name of the DTD.
         /// </summary>
-        public string Name { get; }
+        public string Name { get; private set; }
 
         /// <summary>
         /// Gets the XmlNameTable associated with this implementation.
@@ -226,6 +227,15 @@ namespace Sgml
                         }
                         ch = this.m_current.Lastchar;
                         break;
+                    case ']':
+                        if( this.m_inDocType )
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            goto default;
+                        }
                     default:
                         this.m_current.Error("Unexpected character '{0}'", ch);
                         break;
@@ -265,6 +275,9 @@ namespace Sgml
                         break;
                     case "ATTLIST":
                         ParseAttList();
+                        break;
+                    case "DOCTYPE":
+                        ParseDoctype();
                         break;
                     default:
                         this.m_current.Error("Invalid declaration '<!{0}'.  Expecting 'ENTITY', 'ELEMENT' or 'ATTLIST'.", token);
@@ -456,6 +469,42 @@ namespace Sgml
                 this.m_entities.Add(e.Name, e);
         }
 
+        private void ParseDoctype()
+        {
+            this.m_inDocType = true;
+
+            char ch = this.m_current.SkipWhitespace();
+            String name = this.m_current.ScanToken(this.m_sb, SgmlDtd.WhiteSpace, true);
+            if( this.Name != null )
+            {
+                this.m_current.Error( "This DTD has already been named. If the <!DOCTYPE> specifies a name then set name to null in the constructor." );
+            }
+            this.Name = name;
+
+            ch = this.m_current.SkipWhitespace();
+            if (ch != '[')
+            {
+                this.m_current.Error("Expected opening square-bracket of DOCTYPE. Invalid syntax at '{0}'", ch);  
+            }
+            this.m_current.ReadChar(); // move to next char
+            ch = this.m_current.SkipWhitespace();
+            this.Parse(); // Resume as though the `<!DOCTYPE` didn't exist.
+            // but catch the trailing `]>`
+
+            ch = this.m_current.Lastchar;
+            if( ch != ']' )
+            {
+                this.m_current.Error("Expected ']' closing square-bracket of DOCTYPE. Invalid syntax at '{0}'", ch);  
+            }
+
+            ch = this.m_current.ReadChar();
+            if( ch != '>' )
+            {
+                this.m_current.Error("Expected '>' closing angle-bracket of DOCTYPE. Invalid syntax at '{0}'", ch);  
+            }
+            this.m_inDocType = false;
+        }
+
         private void ParseElementDecl()
         {
             char ch = this.m_current.SkipWhitespace();
@@ -528,9 +577,10 @@ namespace Sgml
         }
 
         static string ngterm = " \r\n\t|,)";
+
         string[] ParseNameGroup(char ch, bool nmtokens)
         {
-            ArrayList names = new ArrayList();
+            List<string> names = new List<string>();
             if (ch == '(') 
             {
                 ch = this.m_current.ReadChar();
@@ -565,10 +615,10 @@ namespace Sgml
                 name = name.ToUpperInvariant();
                 names.Add(name);
             }
-            return (string[])names.ToArray(typeof(string));
+            return names.ToArray();
         }
 
-        void ParseNameList(ArrayList names, bool nmtokens)
+        void ParseNameList(List<string> names, bool nmtokens)
         {
             char ch = this.m_current.Lastchar;
             ch = this.m_current.SkipWhitespace();
@@ -599,6 +649,7 @@ namespace Sgml
         }
 
         static string dcterm = " \r\n\t>";
+
         private ContentModel ParseContentModel(char ch)
         {
             ContentModel cm = new ContentModel();
@@ -629,6 +680,7 @@ namespace Sgml
         }
 
         static string cmterm = " \r\n\t,&|()?+*";
+
         void ParseModel(char cmt, ContentModel cm)
         {
             // Called when part of the model is made up of the contents of a parameter entity
@@ -708,6 +760,8 @@ namespace Sgml
             }
         }
 
+        #region AttList
+
         void ParseAttList()
         {
             char ch = this.m_current.SkipWhitespace();
@@ -727,6 +781,7 @@ namespace Sgml
         }
 
         static string peterm = " \t\r\n>";
+
         void ParseAttList(Dictionary<string, AttDef> list, char term)
         {
             char ch = this.m_current.SkipWhitespace();
@@ -856,5 +911,7 @@ namespace Sgml
                 }
             }
         }
+
+        #endregion
     }
 }
