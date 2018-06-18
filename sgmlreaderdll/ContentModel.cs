@@ -64,13 +64,9 @@ namespace Sgml {
         /// <summary>
         /// The allowed child content, specifying if nested children are not allowed and if so, what content is allowed.
         /// </summary>
-        public DeclaredContent DeclaredContent
-        {
-            get
-            {
-                return m_declaredContent;
-            }
-        }
+        public DeclaredContent DeclaredContent { get; }
+
+        public Group Group => this.m_model;
 
         /// <summary>
         /// Begins processing of a nested model group.

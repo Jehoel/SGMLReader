@@ -94,6 +94,7 @@
     <Compile Include="DtdReader.cs" />
     <Compile Include="ElementDecl.cs" />
     <Compile Include="Entity.cs" />
+    <Compile Include="Group.cs" />
     <Compile Include="HtmlStream.cs" />
     <Compile Include="SgmlParser.cs">
       <SubType>Code</SubType>

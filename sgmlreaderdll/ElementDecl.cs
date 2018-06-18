@@ -84,7 +84,7 @@ namespace Sgml {
         /// <value>true if the start tag of the element is optional, otherwise false.</value>
         public bool StartTagOptional { get; }
 
-        public IReadOnlyDictionary<string,AttDef> Attributes => this.m_attList;
+        public IReadOnlyDictionary<string, AttDef> Attributes => this.m_attList;
 
         /// <summary>
         /// Finds the attribute definition with the specified name.

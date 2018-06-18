@@ -127,6 +127,7 @@ namespace Sgml {
                     else if (output == null) output = arg;
                 }
             }
+            
             if (inputUri != null && !inputUri.StartsWith("http://") && inputUri.IndexOfAny(new char[] { '*', '?' }) >= 0) {
                 // wild card processing of a directory of files.
                 string path = Path.GetDirectoryName(inputUri);

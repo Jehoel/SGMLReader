@@ -39,8 +39,6 @@ namespace Sgml
     /// </summary>
     public class SgmlDtd
     {
-        private string m_name;
-
         private Dictionary<string, ElementDecl> m_elements;
         private Dictionary<string, Entity> m_pentities;
         private Dictionary<string, Entity> m_entities;
@@ -53,23 +51,21 @@ namespace Sgml
         /// <param name="name">The name of the DTD.</param>
         public SgmlDtd(string name)
         {
-            this.m_name = name;
+            this.Name = name;
             this.m_elements = new Dictionary<string,ElementDecl>();
             this.m_pentities = new Dictionary<string, Entity>();
             this.m_entities = new Dictionary<string, Entity>();
             this.m_sb = new StringBuilder();
         }
 
+        public IReadOnlyDictionary<String, ElementDecl> Elements       => this.m_elements;
+        public IReadOnlyDictionary<String, Entity>      ParsedEntities => this.m_pentities;
+        public IReadOnlyDictionary<String, Entity>      Entities       => this.m_entities;
+
         /// <summary>
         /// The name of the DTD.
         /// </summary>
-        public string Name
-        {
-            get
-            {
-                return m_name;
-            }
-        }
+        public string Name { get; }
 
         /// <summary>
         /// Gets the XmlNameTable associated with this implementation.
