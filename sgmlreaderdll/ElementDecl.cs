@@ -39,10 +39,6 @@ namespace Sgml {
     /// </summary>
     public class ElementDecl
     {
-        private string m_name;
-        private bool m_startTagOptional;
-        private bool m_endTagOptional;
-        private ContentModel m_contentModel;
         private string[] m_inclusions;
         private string[] m_exclusions;
         private Dictionary<string, AttDef> m_attList;
@@ -58,59 +54,37 @@ namespace Sgml {
         /// <param name="exclusions"></param>
         public ElementDecl(string name, bool sto, bool eto, ContentModel cm, string[] inclusions, string[] exclusions)
         {
-            m_name = name;
-            m_startTagOptional = sto;
-            m_endTagOptional = eto;
-            m_contentModel = cm;
-            m_inclusions = inclusions;
-            m_exclusions = exclusions;
+            this.Name = name;
+            this.StartTagOptional = sto;
+            this.EndTagOptional = eto;
+            this.ContentModel = cm;
+            this.m_inclusions = inclusions;
+            this.m_exclusions = exclusions;
         }
 
         /// <summary>
         /// The element name.
         /// </summary>
-        public string Name
-        {
-            get
-            {
-                return m_name;
-            }
-        }
+        public string Name { get; }
 
         /// <summary>
         /// The <see cref="Sgml.ContentModel"/> of the element declaration.
         /// </summary>
-        public ContentModel ContentModel
-        {
-            get
-            {
-                return m_contentModel;
-            }
-        }
+        public ContentModel ContentModel { get; }
 
         /// <summary>
         /// Whether the end tag of the element is optional.
         /// </summary>
         /// <value>true if the end tag of the element is optional, otherwise false.</value>
-        public bool EndTagOptional
-        {
-            get
-            {
-                return m_endTagOptional;
-            }
-        }
+        public bool EndTagOptional { get; }
 
         /// <summary>
         /// Whether the start tag of the element is optional.
         /// </summary>
         /// <value>true if the start tag of the element is optional, otherwise false.</value>
-        public bool StartTagOptional
-        {
-            get
-            {
-                return m_startTagOptional;
-            }
-        }
+        public bool StartTagOptional { get; }
+
+        public IReadOnlyDictionary<string,AttDef> Attributes => this.m_attList;
 
         /// <summary>
         /// Finds the attribute definition with the specified name.
@@ -179,7 +153,7 @@ namespace Sgml {
                         return true;
                 }
             }
-            return m_contentModel.CanContain(name, dtd);
+            return this.ContentModel.CanContain(name, dtd);
         }
     }
 }
