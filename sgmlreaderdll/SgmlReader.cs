@@ -449,7 +449,7 @@ namespace Sgml
                         if (stm != null)
                         {
                             StreamReader sr = new StreamReader(stm);
-                            this.m_dtd = SgmlDtd.Parse(baseUri, "HTML", sr, null, this.m_proxy, null);
+                            this.m_dtd = SgmlDtd.Parse(baseUri, "HTML", sr, null, this.m_proxy);
                         }
                     }
                 }
@@ -467,7 +467,7 @@ namespace Sgml
                     {
                         baseUri = new Uri(new Uri(Directory.GetCurrentDirectory() + "/"), this.m_syslit);
                     }
-                    this.m_dtd = SgmlDtd.Parse(baseUri, this.m_docType, this.m_pubid, baseUri.AbsoluteUri, this.m_subset, this.m_proxy, null);
+                    this.m_dtd = SgmlDtd.Parse(baseUri, this.m_docType, this.m_pubid, baseUri.AbsoluteUri, this.m_subset, this.m_proxy);
                 }
             }
 

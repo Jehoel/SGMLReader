@@ -51,8 +51,7 @@ namespace Sgml
         /// Initialises a new instance of the <see cref="SgmlDtd"/> class.
         /// </summary>
         /// <param name="name">The name of the DTD.</param>
-        /// <param name="nt">The <see cref="XmlNameTable"/> is NOT used.</param>
-        public SgmlDtd(string name, XmlNameTable nt)
+        public SgmlDtd(string name)
         {
             this.m_name = name;
             this.m_elements = new Dictionary<string,ElementDecl>();
@@ -93,11 +92,10 @@ namespace Sgml
         /// <param name="url"></param>
         /// <param name="subset"></param>
         /// <param name="proxy"></param>
-        /// <param name="nt">The <see cref="XmlNameTable"/> is NOT used.</param>
         /// <returns>A new <see cref="SgmlDtd"/> instance that encapsulates the DTD.</returns>
-        public static SgmlDtd Parse(Uri baseUri, string name, string pubid, string url, string subset, string proxy, XmlNameTable nt)
+        public static SgmlDtd Parse(Uri baseUri, string name, string pubid, string url, string subset, string proxy)
         {
-            SgmlDtd dtd = new SgmlDtd(name, nt);
+            SgmlDtd dtd = new SgmlDtd(name);
             if (!string.IsNullOrEmpty(url))
             {
                 dtd.PushEntity(baseUri, new Entity(dtd.Name, pubid, url, proxy));
@@ -128,12 +126,11 @@ namespace Sgml
         /// <param name="input">The reader to load the DTD from.</param>
         /// <param name="subset"></param>
         /// <param name="proxy">The proxy server to use when loading resources.</param>
-        /// <param name="nt">The <see cref="XmlNameTable"/> is NOT used.</param>
         /// <returns>A new <see cref="SgmlDtd"/> instance that encapsulates the DTD.</returns>
         [SuppressMessage("Microsoft.Reliability", "CA2000", Justification = "The entities created here are not temporary and should not be disposed here.")]
-        public static SgmlDtd Parse(Uri baseUri, string name, TextReader input, string subset, string proxy, XmlNameTable nt)
+        public static SgmlDtd Parse(Uri baseUri, string name, TextReader input, string subset, string proxy)
         {
-            SgmlDtd dtd = new SgmlDtd(name, nt);
+            SgmlDtd dtd = new SgmlDtd(name);
             dtd.PushEntity(baseUri, new Entity(dtd.Name, baseUri, input, proxy));
             if (!string.IsNullOrEmpty(subset))
             {
