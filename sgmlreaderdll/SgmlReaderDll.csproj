@@ -86,7 +86,10 @@
     <Compile Include="AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="AttDef.cs" />
+    <Compile Include="ContentModel.cs" />
     <Compile Include="DtdReader.cs" />
+    <Compile Include="ElementDecl.cs" />
     <Compile Include="Entity.cs" />
     <Compile Include="HtmlStream.cs" />
     <Compile Include="SgmlParser.cs">
