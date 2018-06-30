@@ -1338,10 +1338,10 @@
 <!--#ELEMENT WIREBENEFICIARY #Link(MEMO,(WIREXFERMSGSRQV1|WIREXFERMSGSRSV1))-->
 <!--#ELEMENT WIREBENEFICIARY #Link(MEMO2,(WIREXFERMSGSRQV2|WIREXFERMSGSRSV2))-->
 
-<!-- Beneficiary's bank for a wire transfer -- >
+<!-- Beneficiary's bank for a wire transfer -->
 <!ELEMENT WIREDESTBANK - - (EXTBANKDESC)>
 
-<!-- Extended description of a bank for a wire transfer -- >
+<!-- Extended description of a bank for a wire transfer -->
 <!ELEMENT EXTBANKDESC - - (NAME , BANKID , (ADDR1,(ADDR2,ADDR3?)?) , CITY , STATE , POSTALCODE , COUNTRY? , PHONE?)>
 
 <!-- Payment instructions for a wire transfer -->
