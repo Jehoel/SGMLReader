@@ -1,40 +1,16 @@
-﻿/*
- * 
- * Copyright (c) 2007-2013 MindTouch. All rights reserved.
- * www.mindtouch.com  oss@mindtouch.com
- *
- * For community documentation and downloads visit wiki.developer.mindtouch.com;
- * please review the licensing section.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- * 
- *     http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * 
- */
-
-using System;
-using System.Xml;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Net;
+using System.Linq;
 using System.Text;
-using System.Collections;
 
 using Sgml;
-using System.Globalization;
-using System.Collections.Generic;
-
-using r = System.Text.RegularExpressions;
 
 namespace SgmlClasses
 {
+	// TODO: Modify SgmlReader's DtdReader to include entity information in ElementDecl or its ContentModel.
+	// e.g.  after reading `<!ELEMENT DTUSER	- o %DTTMTYPE>` from the DTD, the internal object model doesn't mention `DTTMTYPE` anywhere...
+
 	public class Program
 	{
 		public static void Main(String[] args)
@@ -69,20 +45,102 @@ namespace SgmlClasses
 				dtd = SgmlDtd.Parse( dtdUri, null, rdr, null, null );
 			}
 
+			// Read the file again into a string to use metadata regex:
+			Dictionary<String,ParameterEntityMetadata> parameterEntityMetadatas;
+			ILookup<String,ElementMetadata>            elementMetadatas;
+			{
+				String dtdFileContents = File.ReadAllText( dtdFileName );
+
+				parameterEntityMetadatas = ParameterEntityMetadata.Regex
+					.GetAllMatches( dtdFileContents )
+					.Select( match => ParameterEntityMetadata.Create( match ) )
+					.ToDictionary( md => md.Name );
+
+				// I don't know what the `#ELEMENT name #Link` metadata means... none of the relationships make sense...
+				elementMetadatas = ElementMetadata.Regex
+					.GetAllMatches( dtdFileContents )
+					.Select( match => ElementMetadata.Create( match ) )
+					.ToLookup( md => md.FromElement );
+			}
+
 			////////////////////////
 
 			using( StreamWriter w = new StreamWriter( outputFileName, append: false, encoding: Encoding.UTF8 ) )
 			{
 				w.WriteLine( "using System;" );
+				w.WriteLine( "using System.Collections.Generic;" );
 				w.WriteLine();
 				w.WriteLine( "namespace MyNamespace" );
 				w.WriteLine( "{" );
 				w.WriteLine();
 
-                Dictionary<String,Group> groupsAsClasses = new Dictionary<String,Group>();
+				Dictionary<String,Group> groupsAsClasses = new Dictionary<String,Group>();
+
+				// Render all enum types:
+				IEnumerable<ParameterEntityMetadata> pems = parameterEntityMetadatas
+					.Values
+					.Where( pe => pe.DataType == ParameterEnumDataType.Enum )
+					.OrderBy( pe => pe.Name );
+
+				w.WriteLine( "#region Enums" );
+				w.WriteLine();
+
+				foreach( ParameterEntityMetadata pe in pems )
+				{
+					String typeName = pe.Name + "Values";
+
+					w.WriteLine( "\tpublic enum {0}", typeName );
+					w.WriteLine( "\t{" );
+
+					if( pe.EnumValues.Max( v => v.Length ) < 5 && pe.EnumValues.Count > 10 )
+					{
+						w.Write( "\t\t" );
+						for( Int32 i = 0; i < pe.EnumValues.Count; i++ )
+						{
+							if( i > 0 && ( i % 10 == 0 ) )
+							{
+								w.Write( "\r\n\t\t" );
+							}
+							
+							String value = pe.EnumValues[i];
+
+							if( !Char.IsLetter( value[0] ) )
+							{
+								value = "_" + value;
+							}
+
+							w.Write( value );
+							w.Write( ", " );
+						}
+						w.WriteLine();
+					}
+					else
+					{
+						foreach( String name in pe.EnumValues )
+						{
+							String value = name;
+							if( !Char.IsLetter( value[0] ) )
+							{
+								value = "_" + value;
+							}
+
+							w.WriteLine( "\t\t{0},", value );
+						}
+					}
+
+					w.WriteLine( "\t}" );
+					w.WriteLine();
+				}
+
+				w.WriteLine( "#endregion" );
+
+				w.WriteLine();
 
 				foreach( ElementDecl el in dtd.Elements.Values )
 				{
+					// if an element has no members and is text-only, then it doesn't need to be its own class.
+					if( !ShouldRenderAsClass( el ) ) continue;
+
 					w.WriteLine( "\tpublic class {0}", el.GetCSharpName() );
 					w.WriteLine( "\t{" );
 
@@ -104,7 +162,7 @@ namespace SgmlClasses
 						{
 						case DeclaredContent.Default:
 
-							RenderGroup( el.ContentModel.Group, w );
+							RenderGroup( dtd, parameterEntityMetadatas, el.ContentModel.Group, w );
 							break;
 
 						case DeclaredContent.EMPTY:
@@ -123,6 +181,7 @@ namespace SgmlClasses
 					w.WriteLine();
 
 					w.WriteLine( "\t}" );
+					w.WriteLine();
 				}
 
 				w.WriteLine( "}" );
@@ -130,64 +189,85 @@ namespace SgmlClasses
 			}
 		}
 
-		
-		private static readonly Regex _metadataElementRegex         = new Regex( @"<!--#ELEMENT\s+(\S+)\s+(.+?(?=-->))"   , RegexOptions.Singleline | RegexOptions.Compiled );
+		private static Boolean ShouldRenderAsClass( ElementDecl el )
+		{
+			if( el.Attributes?.Count > 0 ) return true;
 
-		
+			if( el.ContentModel.DeclaredContent != DeclaredContent.Default ) return true;
+			// TODO: Should CDATA/RCDATA elements be rendered or just be string properties in their parents? I don't have any examples in the ofx160.dtd file, unfortunately.
 
-		private static List<> GetMetadata()
-        {
+			Group g = el.ContentModel.Group;
 
-        }
+			if( g.Members.Count > 0 ) return true; // TODO: Could simplify nested single children to a single property.
 
-		private static void RenderGroup(Group g, StreamWriter w)
+			switch( g.Occurrence )
+			{
+			case Occurrence.ZeroOrMore:
+			case Occurrence.OneOrMore:
+				return true;
+			case Occurrence.Optional:
+			case Occurrence.Required:
+				break; // TODO: If the group is a single value then it could be an inline array.
+			default:
+				throw new InvalidOperationException( "Unknown occurrence: " + g.Occurrence );
+			}
+
+			if( g.TextOnly ) return false;
+
+			return true; // default fallback, let's see what happens!
+		}
+
+		private static void RenderGroup( SgmlDtd dtd, Dictionary<String,ParameterEntityMetadata> parameterEntityMetadatas, Group g, StreamWriter w )
 		{
 			if( g == null ) return;
 
 			w.WriteLine( "\t\t// Begin Group. {0} members. Occurrence: {1}. TextOnly: {2}.", g.Members.Count, g.Occurrence, g.TextOnly );
 
 			// Handle 0:1 children for now:
-			if( g.Occurrence == Occurrence.Optional )
+			if( g.Occurrence == Occurrence.Optional || g.Occurrence == Occurrence.Required )
 			{
-				w.WriteLine( "\t\t// Optional" );
+				if	 ( g.Occurrence == Occurrence.Optional ) w.WriteLine( "\t\t// Optional" );
+				else if( g.Occurrence == Occurrence.Required ) w.WriteLine( "\t\t// Required" );
+
 				foreach( GroupMember m in g.Members )
 				{
 					if( m.Symbol != null )
 					{
-						w.WriteLine( "\t\tpublic {0} {0} {{ get; set; }}", m.GetCSharpSymbol() );
+						ElementDecl el = dtd.Elements[ m.Symbol ];
+
+						if( !ShouldRenderAsClass( el ) )
+						{
+							// If the element's SGML type does not have a class in this project then it's a scalar value:
+							if( el.ContentModel.Entity != null )
+							{
+								ParameterEntityMetadata pe = parameterEntityMetadatas[ el.ContentModel.Entity.Name ];
+								
+								RenderParameterEntityProperty( w, m, pe );
+							}
+							else
+							{
+								// Fallback to a string:
+								w.WriteLine( "\t\tpublic String {0} {{ get; set; }}", m.GetCSharpSymbol() );
+							}
+						}
+						else
+						{
+							w.WriteLine( "\t\tpublic {0} {0} {{ get; set; }}", m.GetCSharpSymbol() );
+						}
 					}
 					else if( m.Group != null )
 					{
-						RenderGroup( m.Group, w );
+						RenderGroup( dtd, parameterEntityMetadatas, m.Group, w );
 					}
 				}
 				w.WriteLine();
 			}
-			else if( g.Occurrence == Occurrence.Required )
+			else if( g.Occurrence == Occurrence.OneOrMore || g.Occurrence == Occurrence.ZeroOrMore )
 			{
-				w.WriteLine( "\t\t// Required" );
-				foreach( GroupMember m in g.Members )
-				{
-					if( m.Symbol != null )
-					{
-						w.WriteLine( "\t\tpublic {0} {0} {{ get; set; }}", m.GetCSharpSymbol() );
-					}
-					else if( m.Group != null )
-					{
-						RenderGroup( m.Group, w );
-					}
-				}
-				w.WriteLine();
-			}
-			else if( g.Occurrence == Occurrence.OneOrMore )
-			{
-				// TODO: Define a class for this grouping, then put it in a List<TGroup>
-				w.WriteLine( "\t\t// OneOrMore - TODO" );
-			}
-			else if( g.Occurrence == Occurrence.ZeroOrMore )
-			{
-				// TODO: Define a class for this grouping, then put it in a List<TGroup>
-				w.WriteLine( "\t\t// ZeroOrMore - TODO" );
+				if	 ( g.Occurrence == Occurrence.OneOrMore ) w.WriteLine( "\t\t// OneOrMore" );
+				else if( g.Occurrence == Occurrence.ZeroOrMore ) w.WriteLine( "\t\t// ZeroOrMore" );
+
+				RenderRepeatingGroup( dtd, parameterEntityMetadatas, g, w );
 			}
 
 			w.WriteLine( "\t\t// End Group." );
@@ -233,9 +313,69 @@ namespace SgmlClasses
 				throw new ArgumentOutOfRangeException( nameof( at ), at, "Unrecognized." );
 			}
 		}
+
+		private static void RenderParameterEntityProperty( StreamWriter w, GroupMember m, ParameterEntityMetadata pe )
+		{
+			String typeName;
+			if( pe.DataType == ParameterEnumDataType.Enum && pe.EnumValues.Count > 0 )
+			{
+				typeName = pe.Name + "Values";
+			}
+			else
+			{
+				typeName = GetCSharpTypeName( pe.DataType );
+			}
+
+			w.WriteLine( "\t\tpublic {0} {1} {{ get; set; }}", typeName, m.GetCSharpSymbol() );
+		}
+
+		private static void RenderRepeatingGroup( SgmlDtd dtd, Dictionary<String,ParameterEntityMetadata> parameterEntityMetadatas, Group g, StreamWriter w )
+		{
+			if( g.Members.Count == 0 )
+			{
+				throw new InvalidOperationException( "Repeating group with zero members. This should never happen." );
+			}
+			else if( g.Members.Count == 1 )
+			{
+				GroupMember member = g.Members[0];
+				if( member.Group == null )
+				{
+					w.WriteLine( "\t\tpublic List<{0}> {1} {{ get; set; }} = new List<{0}>();", member.Symbol, member.Symbol + "Values" );
+				}
+				else
+				{
+					RenderGroup( dtd, parameterEntityMetadatas, member.Group, w );
+				}
+
+				w.WriteLine( "// g.Members.Count == 1. Symbol: {0}. Group: {1}", g.Members[0].Symbol, g.Members[0].Group == null ? "null" : "Group" );
+			}
+			else // g.Members.Count > 1
+			{
+				w.WriteLine( "// TODO. Members.Count == {0}", g.Members.Count );
+			}
+		}
+
+		private static String GetCSharpTypeName( ParameterEnumDataType t )
+		{
+			switch( t )
+			{
+			case ParameterEnumDataType.Bool       : return "Boolean";
+			case ParameterEnumDataType.Char       : return "Char";
+			case ParameterEnumDataType.Date       : return "DateTime";
+			case ParameterEnumDataType.Empty      : return "Boolean"; // the property is true if the element was present, false if it's absent.
+			case ParameterEnumDataType.Enum       : throw new ArgumentOutOfRangeException( nameof(t),t, "Enum types must have enum values." );
+			case ParameterEnumDataType.Html       : return "String";
+			case ParameterEnumDataType.Integer    : return "Int32";
+			case ParameterEnumDataType.None       : throw new ArgumentOutOfRangeException( nameof(t),t, "A property's type cannot be None." );
+			case ParameterEnumDataType.Numeric    : return "Decimal";
+			case ParameterEnumDataType.Time       : return "TimeSpan";
+			case ParameterEnumDataType.UnicodeText: return "String";
+			default                               : throw new ArgumentOutOfRangeException( nameof(t),t, "Unrecognized value." );
+			}
+		}
 	}
 
-	internal static class Extensions
+	internal static partial class Extensions
 	{
 		public static String GetCSharpName(this AttDef attDef)
 		{
@@ -253,150 +393,5 @@ namespace SgmlClasses
 		}
 	}
 
-	public class ParameterEntityMetadata
-    {
-		public static Regex Regex => _metadataRegex;
-
-		private static readonly Regex _metadataRegex           = new Regex( @"<!--#ENTITY\s+%\s+(\w+)\s+(.+?(?=-->))", RegexOptions.Compiled | RegexOptions.Singleline ); // [1] = Name. [2] = Type expression.
-		private static readonly Regex _dataTypeWithLengthRegex = new Regex( @"#DataType\(([AINR])\-(\d+)\)"          , RegexOptions.Compiled | RegexOptions.IgnoreCase ); // [1] = Type name. [2] = Length
-		private static readonly Regex _dataTypeElseRegex       = new Regex( @"#DataType\((.+?)\)"        , RegexOptions.Compiled | RegexOptions.IgnoreCase ); // [1] = Type name
-		private static readonly Regex _enumTypeRegex           = new Regex( @"#Enum\((?:""\w+""(?:,\s*)?)+\)"        , RegexOptions.Compiled | RegexOptions.IgnoreCase ); // [1] = Enum values (repeating group)
-
-		public static ParameterEntityMetadata Create(Match match)
-        {
-			String nameStr = match.Groups[1].Value;
-			String typeStr = match.Groups[2].Value;
-
-			Match dataTypeWithLengthMatch = _dataTypeWithLengthRegex.Match( typeStr );
-			if( dataTypeWithLengthMatch.Success )
-            {
-				String typeName  = dataTypeWithLengthMatch.Groups[1].Value.ToUpperInvariant();
-				String lengthStr = dataTypeWithLengthMatch.Groups[2].Value;
-				Int32  length    = Int32.Parse( lengthStr, NumberStyles.Integer, CultureInfo.InvariantCulture );
-
-				ParameterEnumDataType type = ParameterEnumDataType.None;
-				switch( typeName )
-                {
-				case "A":
-					type = ParameterEnumDataType.UnicodeText;
-					if( length == 1 ) type = ParameterEnumDataType.Char;
-					break;
-				case "I":
-					type = ParameterEnumDataType.Integer;
-					break;
-				case "N":
-					type = ParameterEnumDataType.Numeric;
-					break;
-				case "R":
-					type = ParameterEnumDataType.Html;
-					break;
-				default:
-					throw new FormatException( "Unrecognized data type with length: " + typeStr );
-                }
-
-				return new ParameterEntityMetadata( nameStr, type, length, null );
-            }
-
-			Match dataTypeElseMatch = _dataTypeElseRegex.Match( typeStr );
-			if( dataTypeElseMatch.Success )
-            {
-				String typeName  = dataTypeWithLengthMatch.Groups[1].Value.ToUpperInvariant();
-
-				ParameterEnumDataType type = ParameterEnumDataType.None;
-				switch( typeName )
-                {
-				case "BOOL":
-					type = ParameterEnumDataType.Bool;
-					break;
-				case "DATE":
-					type = ParameterEnumDataType.Date;
-					break;
-				case "TIME":
-					type = ParameterEnumDataType.Time;
-					break;
-				case "A0-0":
-					type = ParameterEnumDataType.Empty;
-					break;
-				default:
-					throw new FormatException( "Unrecognized data type: " + typeStr );
-                }
-
-				return new ParameterEntityMetadata( nameStr, type, null, null );
-            }
-
-			Match enumMatch = _enumTypeRegex.Match( typeStr );
-			if( enumMatch.Success )
-            {
-				CaptureCollection captures = enumMatch.Groups[1].Captures;
-				String[] values = new String[ captures.Count ];
-				for( Int32 i = 0; i < values.Length; i++ ) values[i] = captures[i].Value;
-
-				return new ParameterEntityMetadata( nameStr, ParameterEnumDataType.Enum, null, values );
-            }
-
-			throw new FormatException( "Unrecognized ENTITY metadata: " + typeStr );
-        }
-
-        private ParameterEntityMetadata(String name, ParameterEnumDataType dataType, Int32? length, IReadOnlyList<String> enumValues)
-        {
-            this.Name = name;
-            this.DataType = dataType;
-            this.Length = length;
-            this.EnumValues = enumValues;
-        }
-
-        public String Name { get; }
-		
-		public ParameterEnumDataType DataType { get; }
-
-		public Int32? Length { get; }
-
-		public IReadOnlyList<String> EnumValues { get; }
-
-		private static ParameterEnumDataType ParseTypeName(String name)
-        {
-			// I think these types come from MIFST, the ofx160.dtd file says "Profile data types brought from MIFST 1.0".
-			// "Microsoft Internet Finance Server Toolkit", which includes an OFX library:
-			// https://news.microsoft.com/1998/12/03/microsoft-internet-finance-server-toolkit-licensed-to-software-companies/
-			// http://www.ucd.ie/sys-mgt/y2k/tech/ms/user_allproductsvol14.htm
-			// 
-
-			name = name.ToUpperInvariant();
-			switch( name )
-            {
-			case "A": return ParameterEnumDataType.UnicodeText;
-			case "I": return ParameterEnumDataType.Integer;
-			case "N": return ParameterEnumDataType.Numeric;
-			case "R": return ParameterEnumDataType.Html;
-			case "BOOL": return ParameterEnumDataType.Bool;
-			case "DATE": return ParameterEnumDataType.
-            }
-        }
-    }
-
-	public enum ParameterEnumDataType
-    {
-		None,
-		Empty, // "A0-0" ('0' appears twice)
-
-		// No length specified:
-		Date, // DATE
-		Time, // TIME
-		Bool, // BOOL - "'Y' = yes or true, 'N' = no or false
-
-		// Specifies length:
-
-
-		Char, // Single character, "CHARTYPE" aka "A-1".
-		UnicodeText, // "A-(n)" - "Character fields are identified with a data type of “A-n”, where n is the maximum number of allowed Unicode characters."
-		Integer, // "I-(n)" - "INTTYPE" and others, This is mentioned in the PDF, but the ofx160.dtd explicitly lists it for INTTYPE as "Integer", presumably "n" is digits, not bytes because there are non-power-of-2 values like "I-3" and "I-6".
-		
-		Enum, // #ENUM 
-		Numeric, // N-(n), "N-n identifies an element of numeric type where n is the maximum number of characters in the value. Values of this type are generally whole numbers, but the data type allows negative numbers."
-		// Except in ofx160.dtd, AMTTYPE is described as N-32, but with the comment "Current Amount: Used for specifying an amount. may be signed; comma or period for decimal point"
-		// And in my Chase QFX file, the values are indeed signed 2-digit decimal numbers. e.g. `<TRNAMT>-1130.00`
-		// So I guess I'll use `System.Decimal` for this type.
-
-		Html // R-(n) - Only seen for MSGBODY `R-10000` which is described as "HTML-encoded text - A-1000 or Plain text - A-2000".
-    }
+	
 }
