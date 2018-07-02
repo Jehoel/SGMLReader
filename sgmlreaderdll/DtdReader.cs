@@ -280,7 +280,7 @@ namespace Sgml
                         ParseDoctype();
                         break;
                     default:
-                        this.m_current.Error("Invalid declaration '<!{0}'.  Expecting 'ENTITY', 'ELEMENT' or 'ATTLIST'.", token);
+                        this.m_current.Error("Invalid declaration '<!{0}'.  Expecting 'ENTITY', 'ELEMENT', 'DOCTYPE' or 'ATTLIST'.", token);
                         break;
                 }
             }
