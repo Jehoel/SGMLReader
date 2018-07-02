@@ -66,6 +66,8 @@ namespace Sgml {
         /// </summary>
         public DeclaredContent DeclaredContent { get; }
 
+        public Entity Entity { get; set; }
+
         public Group Group => this.m_model;
 
         /// <summary>

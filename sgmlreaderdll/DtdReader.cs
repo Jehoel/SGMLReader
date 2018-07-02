@@ -669,6 +669,8 @@ namespace Sgml
                 Entity e = ParseParameterEntity(SgmlDtd.dcterm);
                 PushEntity(this.m_current.ResolvedUri, e);
                 cm = ParseContentModel(this.m_current.Lastchar);
+                cm.Entity = e;
+
                 PopEntity(); // bugbug should be at EOF.
             }
             else
