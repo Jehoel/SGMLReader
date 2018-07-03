@@ -86,6 +86,10 @@ namespace Sgml {
             }
         }
 
+        public Boolean OccurrenceIsOnce => ( this.Occurrence == Occurrence.Required ) || ( this.Occurrence == Occurrence.Optional );
+
+        public Entity CurrentEntity { get; set; }
+
         /// <summary>
         /// Checks whether the group contains only text.
         /// </summary>
@@ -109,6 +113,7 @@ namespace Sgml {
             }
         }
 
+        public GroupType GroupType => this.m_groupType;
         
         /// <summary>
         /// Adds a new child model group to the end of the group's members.

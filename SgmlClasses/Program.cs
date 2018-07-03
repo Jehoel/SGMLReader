@@ -11,6 +11,18 @@ namespace SgmlClasses
 	// TODO: Modify SgmlReader's DtdReader to include entity information in ElementDecl or its ContentModel.
 	// e.g.  after reading `<!ELEMENT DTUSER	- o %DTTMTYPE>` from the DTD, the internal object model doesn't mention `DTTMTYPE` anywhere...
 
+	public class RenderContext
+	{
+		public RenderContext(SgmlDtd dtd, Dictionary<String, ParameterEntityMetadata> parameterEntityMetadatas)
+		{
+			this.Dtd = dtd;
+			this.ParameterEntityMetadatas = parameterEntityMetadatas;
+		}
+
+		public SgmlDtd Dtd { get; }
+		public Dictionary<String,ParameterEntityMetadata> ParameterEntityMetadatas { get; }
+	}
+
 	public class Program
 	{
 		public static void Main(String[] args)
@@ -64,6 +76,8 @@ namespace SgmlClasses
 			}
 
 			////////////////////////
+
+			RenderContext ctx = new RenderContext( dtd, parameterEntityMetadatas );
 
 			using( StreamWriter w = new StreamWriter( outputFileName, append: false, encoding: Encoding.UTF8 ) )
 			{
@@ -135,53 +149,24 @@ namespace SgmlClasses
 				w.WriteLine( "#endregion" );
 
 				w.WriteLine();
+				w.WriteLine( @"
+	public abstract class Element
+	{
+		protected Element(String name)
+		{
+			this.Name = name;
+		}
+
+		public String Name { get; }
+	}
+" );
 
 				foreach( ElementDecl el in dtd.Elements.Values )
 				{
 					// if an element has no members and is text-only, then it doesn't need to be its own class.
 					if( !ShouldRenderAsClass( el ) ) continue;
 
-					w.WriteLine( "\tpublic class {0}", el.GetCSharpName() );
-					w.WriteLine( "\t{" );
-
-					w.WriteLine();
-
-					if( el.Attributes != null )
-					{
-						foreach( AttDef attrib in el.Attributes.Values )
-						{
-							String csharpType = GetCSharpType( attrib.Type );
-
-							w.WriteLine( "\t\tpublic {0} {1} {{ get; set; }}", csharpType, attrib.GetCSharpName() );
-						}
-					}
-
-					if( el.ContentModel != null )
-					{
-						switch( el.ContentModel.DeclaredContent )
-						{
-						case DeclaredContent.Default:
-
-							RenderGroup( dtd, parameterEntityMetadatas, el.ContentModel.Group, w );
-							break;
-
-						case DeclaredContent.EMPTY:
-							break;
-						case DeclaredContent.CDATA:
-							w.WriteLine();
-							w.WriteLine( "\t\tpublic String CDATA { get; set; }" );
-							break;
-						case DeclaredContent.RCDATA:
-							w.WriteLine();
-							w.WriteLine( "\t\tpublic String RCDATA { get; set; }" );
-							break;
-						}
-					}
-
-					w.WriteLine();
-
-					w.WriteLine( "\t}" );
-					w.WriteLine();
+					RenderElementClass( ctx, el, w );
 				}
 
 				w.WriteLine( "}" );
@@ -217,14 +202,128 @@ namespace SgmlClasses
 			return true; // default fallback, let's see what happens!
 		}
 
-		private static void RenderGroup( SgmlDtd dtd, Dictionary<String,ParameterEntityMetadata> parameterEntityMetadatas, Group g, StreamWriter w )
+		private static void RenderElementClass( RenderContext ctx, ElementDecl el, StreamWriter w )
+		{
+			w.WriteLine( "\tpublic class {0} : Element", el.GetCSharpName() );
+			w.WriteLine( "\t{" );
+			w.WriteLine( "\t\tinternal const String NameStr = \"{0}\";", el.Name );
+			w.WriteLine( "\t\tpublic static String Name => NameStr;" );
+			w.WriteLine( "\t\tpublic {0}() : base( NameStr ) {{}}", el.GetCSharpName() );
+			w.WriteLine();
+
+			if( el.Attributes != null )
+			{
+				foreach( AttDef attrib in el.Attributes.Values )
+				{
+					String csharpType = GetCSharpType( attrib.Type );
+
+					w.WriteLine( "\t\tpublic {0} {1} {{ get; set; }}", csharpType, attrib.GetCSharpName() );
+				}
+			}
+
+			if( el.ContentModel != null )
+			{
+				switch( el.ContentModel.DeclaredContent )
+				{
+				case DeclaredContent.Default:
+
+					RenderGroup( ctx, el.ContentModel.Group, w, depth: 0 );
+					break;
+
+				case DeclaredContent.EMPTY:
+					break;
+				case DeclaredContent.CDATA:
+					w.WriteLine();
+					w.WriteLine( "\t\tpublic String CDATA { get; set; }" );
+					break;
+				case DeclaredContent.RCDATA:
+					w.WriteLine();
+					w.WriteLine( "\t\tpublic String RCDATA { get; set; }" );
+					break;
+				}
+			}
+
+			w.WriteLine();
+
+			w.WriteLine( "\t}" );
+			w.WriteLine();
+		}
+
+		#region RenderGroup
+
+		private static void RenderGroup( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
 			if( g == null ) return;
 
-			w.WriteLine( "\t\t// Begin Group. {0} members. Occurrence: {1}. TextOnly: {2}.", g.Members.Count, g.Occurrence, g.TextOnly );
+			w.WriteLine( "\t\t// Begin Group. {0} members. Occurrence: {1}. Type: {2}. TextOnly: {3}.".PrefixTabs( depth ), g.Members.Count, g.Occurrence, g.GroupType, g.TextOnly );
 
+			switch( g.Occurrence )
+			{
+			case Occurrence.Required:
+
+				switch( g.GroupType )
+				{
+				case GroupType.None:
+					RenderGroup_Required_None( ctx, g, w, depth ); break;
+				case GroupType.And:
+					RenderGroup_Required_And( ctx, g, w, depth ); break;
+				case GroupType.Or:
+					RenderGroup_Required_Or( ctx, g, w, depth ); break;
+				case GroupType.Sequence:
+					RenderGroup_Required_Sequence( ctx, g, w, depth ); break;
+				}
+
+				break;
+			case Occurrence.Optional:
+
+				switch( g.GroupType )
+				{
+				case GroupType.None:
+					RenderGroup_Optional_None( ctx, g, w, depth ); break;
+				case GroupType.And:
+					RenderGroup_Optional_And( ctx, g, w, depth ); break;
+				case GroupType.Or:
+					RenderGroup_Optional_Or( ctx, g, w, depth ); break;
+				case GroupType.Sequence:
+					RenderGroup_Optional_Sequence( ctx, g, w, depth ); break;
+				}
+
+				break;
+			case Occurrence.ZeroOrMore:
+
+				switch( g.GroupType )
+				{
+				case GroupType.None:
+					RenderGroup_ZeroOrMore_None( ctx, g, w, depth ); break;
+				case GroupType.And:
+					RenderGroup_ZeroOrMore_And( ctx, g, w, depth ); break;
+				case GroupType.Or:
+					RenderGroup_ZeroOrMore_Or( ctx, g, w, depth ); break;
+				case GroupType.Sequence:
+					RenderGroup_ZeroOrMore_Sequence( ctx, g, w, depth ); break;
+				}
+
+				break;
+			case Occurrence.OneOrMore:
+
+				switch( g.GroupType )
+				{
+				case GroupType.None:
+					RenderGroup_OneOrMore_None( ctx, g, w, depth ); break;
+				case GroupType.And:
+					RenderGroup_OneOrMore_And( ctx, g, w, depth ); break;
+				case GroupType.Or:
+					RenderGroup_OneOrMore_Or( ctx, g, w, depth ); break;
+				case GroupType.Sequence:
+					RenderGroup_OneOrMore_Sequence( ctx, g, w, depth ); break;
+				}
+
+				break;
+			}
+
+			/*
 			// Handle 0:1 children for now:
-			if( g.Occurrence == Occurrence.Optional || g.Occurrence == Occurrence.Required )
+			if( g.OccurrenceIsOnce )
 			{
 				if	 ( g.Occurrence == Occurrence.Optional ) w.WriteLine( "\t\t// Optional" );
 				else if( g.Occurrence == Occurrence.Required ) w.WriteLine( "\t\t// Required" );
@@ -269,9 +368,169 @@ namespace SgmlClasses
 
 				RenderRepeatingGroup( dtd, parameterEntityMetadatas, g, w );
 			}
-
-			w.WriteLine( "\t\t// End Group." );
+			*/
+			w.WriteLine( "\t\t// End Group.".PrefixTabs( depth ) );
 		}
+
+		private static void RenderGroup_Required_None( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_Required_None".PrefixTabs( depth ) );
+			RenderGroup_Required_NoneAndSequence( ctx, g, w, depth );
+		}
+
+		private static void RenderGroup_Required_And( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_Required_And".PrefixTabs( depth ) );
+			RenderGroup_Required_NoneAndSequence( ctx, g, w, depth );
+		}
+
+		private static void RenderGroup_Required_Or( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_Required_Or".PrefixTabs( depth ) );
+
+			// A single property for any single element in the membership list.
+			// Quick approach: the property is typed `Element`
+			// Best approach: the possible element types (C# classes) are annotated with a new interface that the property is typed as.
+			// Another approach: a new class is defined for the group that has strongly-typed properties, but only 1 such property is populated.
+
+			// Problem: the group's options are not necessarily elements, but could be entities or other groups (aaaah).
+
+			// Handle the easier case where all members are elements (a subset of the case where all children are symbols)
+			Boolean allChildrenAreElementClasses = g.Members.All( m => m.Group == null && ShouldRenderAsClass( ctx.Dtd.Elements[m.Symbol] ) );
+			if( allChildrenAreElementClasses )
+			{
+				String propertyName = String.Join( "_or_", g.Members.Select( m => m.GetCSharpSymbol() ) );
+				String comment      = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
+
+				w.WriteLine( "\t\tpublic Element {0} {{ get; set; }} // {1}", propertyName, comment );
+			}
+			else
+			{
+				Boolean allChildrenAreValues = g.Members.All( m => m.Group == null && !ShouldRenderAsClass( ctx.Dtd.Elements[m.Symbol] ) );
+				if( allChildrenAreValues )
+				{
+					String propertyName = String.Join( "_or_", g.Members.Select( m => m.GetCSharpSymbol() ) );
+					String comment      = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
+
+					w.WriteLine( "\t\tpublic String {0} {{ get; set; }} // {1}", propertyName, comment );
+				}
+				else
+				{
+					w.WriteLine( "\t\t// RenderGroup_Required_Or - TODO (Non-element children)".PrefixTabs( depth ) );
+				}
+			}
+		}
+
+		private static void RenderGroup_Required_Sequence( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_Required_Sequence".PrefixTabs( depth ) );
+			RenderGroup_Required_NoneAndSequence( ctx, g, w, depth );
+		}
+
+		private static void RenderGroup_Required_NoneAndSequence( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			foreach( GroupMember member in g.Members )
+			{
+				if( member.Group != null )
+				{
+					RenderGroup( ctx, member.Group, w, depth + 1 );
+				}
+				else if( member.Symbol != null )
+				{
+					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w );
+				}
+			}
+		}
+
+
+
+		private static void RenderGroup_Optional_None( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			if( g.Members.Count == 1 )
+			{
+				w.WriteLine( "\t\t// RenderGroup_Optional_None_Single".PrefixTabs( depth ) );
+
+				GroupMember member = g.Members[0];
+				if( member.Group != null )
+				{
+					RenderGroup( ctx, member.Group, w, depth + 1 );
+				}
+				else if( member.Symbol != null )
+				{
+					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w );
+				}
+			}
+			else
+			{
+				w.WriteLine( "\t\t// RenderGroup_Optional_None_Multiple - TODO".PrefixTabs( depth ) );
+			}
+		}
+
+		private static void RenderGroup_Optional_And( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_Optional_And - TODO".PrefixTabs( depth ) );
+		}
+
+		private static void RenderGroup_Optional_Or( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_Optional_Or - TODO".PrefixTabs( depth ) );
+		}
+
+		private static void RenderGroup_Optional_Sequence( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_Optional_Sequence - TODO".PrefixTabs( depth ) );
+		}
+
+		
+
+		private static void RenderGroup_ZeroOrMore_None( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_None - TODO".PrefixTabs( depth ) );
+		}
+
+		private static void RenderGroup_ZeroOrMore_And( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_And - TODO".PrefixTabs( depth ) );
+		}
+
+		private static void RenderGroup_ZeroOrMore_Or( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_Or - TODO".PrefixTabs( depth ) );
+		}
+
+		private static void RenderGroup_ZeroOrMore_Sequence( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_Sequence - TODO".PrefixTabs( depth ) );
+		}
+
+
+
+		private static void RenderGroup_OneOrMore_None( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_OneOrMore_None - TODO".PrefixTabs( depth ) );
+		}
+
+		private static void RenderGroup_OneOrMore_And( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_OneOrMore_And - TODO".PrefixTabs( depth ) );
+		}
+
+		private static void RenderGroup_OneOrMore_Or( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_OneOrMore_Or - TODO".PrefixTabs( depth ) );
+		}
+
+		private static void RenderGroup_OneOrMore_Sequence( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			w.WriteLine( "\t\t// RenderGroup_OneOrMore_Sequence - TODO".PrefixTabs( depth ) );
+		}
+
+		private static void RenderGroupMemberSymbolAsScalarProperty( RenderContext ctx, GroupMember member, StreamWriter w )
+		{
+			w.WriteLine( "\t\tpublic {0} {0} {{ get; set; }}", member.GetCSharpSymbol() );
+		}
+
+		#endregion
 
 		private static String GetCSharpType(AttributeType at)
 		{
@@ -331,29 +590,40 @@ namespace SgmlClasses
 
 		private static void RenderRepeatingGroup( SgmlDtd dtd, Dictionary<String,ParameterEntityMetadata> parameterEntityMetadatas, Group g, StreamWriter w )
 		{
+			if( g.TextOnly ) throw new InvalidOperationException( "Repeating group that's TextOnly. This should never happen." );
+
 			if( g.Members.Count == 0 )
 			{
 				throw new InvalidOperationException( "Repeating group with zero members. This should never happen." );
 			}
 			else if( g.Members.Count == 1 )
 			{
+				w.WriteLine( "\t\t// g.Members.Count == 1. Symbol: {0}. Group: {1}. Occurrence: {2}.",  g.Members[0].Symbol, g.Members[0].Group == null ? "null" : "Group", g.Occurrence );
+
 				GroupMember member = g.Members[0];
 				if( member.Group == null )
 				{
+					// Symbol member, not a Group member:
 					w.WriteLine( "\t\tpublic List<{0}> {1} {{ get; set; }} = new List<{0}>();", member.Symbol, member.Symbol + "Values" );
 				}
 				else
 				{
-					RenderGroup( dtd, parameterEntityMetadatas, member.Group, w );
+					// Sub-Group member:
+					//RenderGroup( dtd, parameterEntityMetadatas, member.Group, w );
+					Group subGroup = member.Group;
+
+					w.WriteLine( "// TODO. Sub-group repeated {0}. TextOnly: {1}. Members.Count: {2}", subGroup.Occurrence, subGroup.TextOnly, subGroup.Members.Count );
 				}
 
-				w.WriteLine( "// g.Members.Count == 1. Symbol: {0}. Group: {1}", g.Members[0].Symbol, g.Members[0].Group == null ? "null" : "Group" );
+				
 			}
 			else // g.Members.Count > 1
 			{
 				w.WriteLine( "// TODO. Members.Count == {0}", g.Members.Count );
 			}
 		}
+
+		//private static void RenderRepeatingGroup
 
 		private static String GetCSharpTypeName( ParameterEnumDataType t )
 		{
@@ -390,6 +660,12 @@ namespace SgmlClasses
 		public static String GetCSharpSymbol(this GroupMember groupMember)
 		{
 			return groupMember.Symbol.Replace(".", "");
+		}
+
+		public static String PrefixTabs(this String str, Int32 depth)
+		{
+			String prefix = "".PadLeft( depth, '\t' );
+			return prefix + str;
 		}
 	}
 

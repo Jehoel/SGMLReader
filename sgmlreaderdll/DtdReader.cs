@@ -706,6 +706,10 @@ namespace Sgml
                 else if (ch == '(') 
                 {
                     cm.PushGroup();
+                    if(this.m_current is Entity currentEntity)
+                    {
+                        cm.Group.CurrentEntity = currentEntity;
+                    }
                     this.m_current.ReadChar();// consume '('
                     ch = this.m_current.SkipWhitespace();
                 }
