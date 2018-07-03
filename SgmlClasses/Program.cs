@@ -83,6 +83,7 @@ namespace SgmlClasses
 			{
 				w.WriteLine( "using System;" );
 				w.WriteLine( "using System.Collections.Generic;" );
+				w.WriteLine( "using System.ComponentModel.DataAnnotations;" );
 				w.WriteLine();
 				w.WriteLine( "namespace MyNamespace" );
 				w.WriteLine( "{" );
@@ -437,7 +438,7 @@ namespace SgmlClasses
 				}
 				else if( member.Symbol != null )
 				{
-					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w );
+					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth );
 				}
 			}
 		}
@@ -457,7 +458,7 @@ namespace SgmlClasses
 				}
 				else if( member.Symbol != null )
 				{
-					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w );
+					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth );
 				}
 			}
 			else
@@ -518,6 +519,51 @@ namespace SgmlClasses
 		private static void RenderGroup_OneOrMore_Or( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
 			w.WriteLine( "\t\t// RenderGroup_OneOrMore_Or - TODO".PrefixTabs( depth ) );
+
+			// Are the members all symbols?
+			String groupTypeName;
+
+			Boolean allChildrenAreElementClasses = g.Members.All( m => m.Group == null && ShouldRenderAsClass( ctx.Dtd.Elements[m.Symbol] ) );
+			if( allChildrenAreElementClasses )
+			{
+				String propertyName  = String.Join( "_or_", g.Members.Select( m => m.GetCSharpSymbol() ) );
+				groupTypeName = propertyName + "Group";
+				String comment       = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
+
+				w.WriteLine( "\t\tpublic List<{0}> {1} {{ get; set; }} = new List<{0}>(); // {2}", groupTypeName, propertyName, comment );
+			}
+			else
+			{
+				Boolean allChildrenAreValues = g.Members.All( m => m.Group == null && !ShouldRenderAsClass( ctx.Dtd.Elements[m.Symbol] ) );
+				if( allChildrenAreValues )
+				{
+					String propertyName  = String.Join( "_or_", g.Members.Select( m => m.GetCSharpSymbol() ) );
+					groupTypeName = propertyName + "Group";
+					String comment       = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
+
+					w.WriteLine( "\t\tpublic List<{0}> {1} {{ get; set; }} = new List<{0}>(); // {2}", groupTypeName, propertyName, comment );
+				}
+				else
+				{
+					w.WriteLine( "\t\t// RenderGroup_OneOrMore_Or - TODO (Non-element children)".PrefixTabs( depth ) );
+					return;
+				}
+			}
+
+			w.WriteLine();
+			w.WriteLine( "\t\tpublic class {0}", groupTypeName );
+			w.WriteLine( "\t\t{" );
+
+			foreach( GroupMember member in g.Members )
+			{
+				if( member.Group != null ) throw new InvalidOperationException( "This should never happen." );
+
+				RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth + 1 );
+			}
+
+			w.WriteLine( "\t\t" );
+			w.WriteLine( "\t\t}" );
+
 		}
 
 		private static void RenderGroup_OneOrMore_Sequence( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
@@ -525,9 +571,31 @@ namespace SgmlClasses
 			w.WriteLine( "\t\t// RenderGroup_OneOrMore_Sequence - TODO".PrefixTabs( depth ) );
 		}
 
-		private static void RenderGroupMemberSymbolAsScalarProperty( RenderContext ctx, GroupMember member, StreamWriter w )
+		private static void RenderGroupMemberSymbolAsScalarProperty( RenderContext ctx, GroupMember member, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\tpublic {0} {0} {{ get; set; }}", member.GetCSharpSymbol() );
+			if( member.Symbol == null ) throw new ArgumentException( "Member must be a symbol.", nameof(member) );
+
+			ElementDecl el = ctx.Dtd.Elements[ member.Symbol ];
+
+			if( !ShouldRenderAsClass( el ) )
+			{
+				// If the element's SGML type does not have a class in this project then it's a scalar value:
+				if( el.ContentModel.Entity != null )
+				{
+					ParameterEntityMetadata pe = ctx.ParameterEntityMetadatas[ el.ContentModel.Entity.Name ];
+								
+					RenderParameterEntityProperty( w, member, pe, depth );
+				}
+				else
+				{
+					// Fallback to a string:
+					w.WriteLine( "\t\tpublic String {0} {{ get; set; }} // TODO: Couldn't determine member type".PrefixTabs( depth ), member.GetCSharpSymbol() );
+				}
+			}
+			else
+			{
+				w.WriteLine( "\t\tpublic {0} {0} {{ get; set; }}".PrefixTabs( depth ), member.GetCSharpSymbol() );
+			}
 		}
 
 		#endregion
@@ -573,7 +641,7 @@ namespace SgmlClasses
 			}
 		}
 
-		private static void RenderParameterEntityProperty( StreamWriter w, GroupMember m, ParameterEntityMetadata pe )
+		private static void RenderParameterEntityProperty( StreamWriter w, GroupMember m, ParameterEntityMetadata pe, Int32 depth )
 		{
 			String typeName;
 			if( pe.DataType == ParameterEnumDataType.Enum && pe.EnumValues.Count > 0 )
@@ -585,7 +653,12 @@ namespace SgmlClasses
 				typeName = GetCSharpTypeName( pe.DataType );
 			}
 
-			w.WriteLine( "\t\tpublic {0} {1} {{ get; set; }}", typeName, m.GetCSharpSymbol() );
+			if( pe.Length != null )
+			{
+				w.WriteLine( "\t\t[StringLength( {0} )]".PrefixTabs( depth ), pe.Length.Value );
+			}
+
+			w.WriteLine( "\t\tpublic {0} {1} {{ get; set; }}".PrefixTabs( depth ), typeName, m.GetCSharpSymbol() );
 		}
 
 		private static void RenderRepeatingGroup( SgmlDtd dtd, Dictionary<String,ParameterEntityMetadata> parameterEntityMetadatas, Group g, StreamWriter w )
