@@ -207,8 +207,8 @@ namespace SgmlClasses
 		{
 			w.WriteLine( "\tpublic class {0} : Element", el.GetCSharpName() );
 			w.WriteLine( "\t{" );
-			w.WriteLine( "\t\tinternal const String NameStr = \"{0}\";", el.Name );
-			w.WriteLine( "\t\tpublic static String Name => NameStr;" );
+			w.WriteLine( "\t\tinternal const String TagNameStr = \"{0}\";", el.Name );
+			w.WriteLine( "\t\tpublic static String TagName => NameStr;" );
 			w.WriteLine( "\t\tpublic {0}() : base( NameStr ) {{}}", el.GetCSharpName() );
 			w.WriteLine();
 
@@ -322,54 +322,6 @@ namespace SgmlClasses
 				break;
 			}
 
-			/*
-			// Handle 0:1 children for now:
-			if( g.OccurrenceIsOnce )
-			{
-				if	 ( g.Occurrence == Occurrence.Optional ) w.WriteLine( "\t\t// Optional" );
-				else if( g.Occurrence == Occurrence.Required ) w.WriteLine( "\t\t// Required" );
-
-				foreach( GroupMember m in g.Members )
-				{
-					if( m.Symbol != null )
-					{
-						ElementDecl el = dtd.Elements[ m.Symbol ];
-
-						if( !ShouldRenderAsClass( el ) )
-						{
-							// If the element's SGML type does not have a class in this project then it's a scalar value:
-							if( el.ContentModel.Entity != null )
-							{
-								ParameterEntityMetadata pe = parameterEntityMetadatas[ el.ContentModel.Entity.Name ];
-								
-								RenderParameterEntityProperty( w, m, pe );
-							}
-							else
-							{
-								// Fallback to a string:
-								w.WriteLine( "\t\tpublic String {0} {{ get; set; }}", m.GetCSharpSymbol() );
-							}
-						}
-						else
-						{
-							w.WriteLine( "\t\tpublic {0} {0} {{ get; set; }}", m.GetCSharpSymbol() );
-						}
-					}
-					else if( m.Group != null )
-					{
-						RenderGroup( dtd, parameterEntityMetadatas, m.Group, w );
-					}
-				}
-				w.WriteLine();
-			}
-			else if( g.Occurrence == Occurrence.OneOrMore || g.Occurrence == Occurrence.ZeroOrMore )
-			{
-				if	 ( g.Occurrence == Occurrence.OneOrMore ) w.WriteLine( "\t\t// OneOrMore" );
-				else if( g.Occurrence == Occurrence.ZeroOrMore ) w.WriteLine( "\t\t// ZeroOrMore" );
-
-				RenderRepeatingGroup( dtd, parameterEntityMetadatas, g, w );
-			}
-			*/
 			w.WriteLine( "\t\t// End Group.".PrefixTabs( depth ) );
 		}
 
@@ -403,7 +355,7 @@ namespace SgmlClasses
 				String propertyName = String.Join( "_or_", g.Members.Select( m => m.GetCSharpSymbol() ) );
 				String comment      = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
 
-				w.WriteLine( "\t\tpublic Element {0} {{ get; set; }} // {1}", propertyName, comment );
+				w.WriteLine( "\t\tpublic Element {0} {{ get; set; }} // {1}".PrefixTabs(depth), propertyName, comment );
 			}
 			else
 			{
@@ -413,11 +365,11 @@ namespace SgmlClasses
 					String propertyName = String.Join( "_or_", g.Members.Select( m => m.GetCSharpSymbol() ) );
 					String comment      = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
 
-					w.WriteLine( "\t\tpublic String {0} {{ get; set; }} // {1}", propertyName, comment );
+					w.WriteLine( "\t\tpublic String {0} {{ get; set; }} // {1}".PrefixTabs(depth), propertyName, comment );
 				}
 				else
 				{
-					w.WriteLine( "\t\t// RenderGroup_Required_Or - TODO (Non-element children)".PrefixTabs( depth ) );
+					RenderOrGroupClassAndSingleProperty( ctx, g, w, depth + 1 );
 				}
 			}
 		}
@@ -474,12 +426,64 @@ namespace SgmlClasses
 
 		private static void RenderGroup_Optional_Or( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\t// RenderGroup_Optional_Or - TODO".PrefixTabs( depth ) );
+			w.WriteLine( "\t\t// RenderGroup_Optional_Or".PrefixTabs( depth ) );
+
+			// BEGIN Copy+pasted from RenderGroup_Required_Or:
+
+			// A single property for any single element in the membership list.
+			// Quick approach: the property is typed `Element`
+			// Best approach: the possible element types (C# classes) are annotated with a new interface that the property is typed as.
+			// Another approach: a new class is defined for the group that has strongly-typed properties, but only 1 such property is populated.
+
+			// Problem: the group's options are not necessarily elements, but could be entities or other groups (aaaah).
+
+			// Handle the easier case where all members are elements (a subset of the case where all children are symbols)
+			Boolean allChildrenAreElementClasses = g.Members.All( m => m.Group == null && ShouldRenderAsClass( ctx.Dtd.Elements[m.Symbol] ) );
+			if( allChildrenAreElementClasses )
+			{
+				String propertyName = String.Join( "_or_", g.Members.Select( m => m.GetCSharpSymbol() ) );
+				String comment      = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
+
+				w.WriteLine( "\t\tpublic Element {0} {{ get; set; }} // {1}".PrefixTabs(depth), propertyName, comment );
+			}
+			else
+			{
+				Boolean allChildrenAreValues = g.Members.All( m => m.Group == null && !ShouldRenderAsClass( ctx.Dtd.Elements[m.Symbol] ) );
+				if( allChildrenAreValues )
+				{
+					String propertyName = String.Join( "_or_", g.Members.Select( m => m.GetCSharpSymbol() ) );
+					String comment      = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
+
+					w.WriteLine( "\t\tpublic String {0} {{ get; set; }} // {1} (allChildrenAreValues)".PrefixTabs(depth), propertyName, comment );
+				}
+				else
+				{
+					//w.WriteLine( "\t\t// RenderGroup_Optional_Or - TODO (Non-element children)".PrefixTabs( depth ) );
+
+					// Render a class for this group that uses a class `Group` to represent any group children:
+
+					RenderOrGroupClassAndSingleProperty( ctx, g, w, depth + 1 );
+				}
+			}
+
+			// END Copy+pasted from RenderGroup_Required_Or:
 		}
 
 		private static void RenderGroup_Optional_Sequence( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\t// RenderGroup_Optional_Sequence - TODO".PrefixTabs( depth ) );
+			w.WriteLine( "\t\t// RenderGroup_Optional_Sequence".PrefixTabs( depth ) );
+
+			// If all members of a group are optional then just render them directly. No need for a separate class.
+
+			GroupMember member = g.Members[0];
+			if( member.Group != null )
+			{
+				RenderGroup( ctx, member.Group, w, depth + 1 );
+			}
+			else if( member.Symbol != null )
+			{
+				RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth );
+			}
 		}
 
 		
@@ -560,6 +564,40 @@ namespace SgmlClasses
 			///////////////////////
 
 			w.WriteLine( "\t\tpublic List<{0}> {1} {{ get; set; }} = new List<{0}>(); // {2} (All elements)".PrefixTabs( depth ), groupTypeName, propertyName, comment );
+		}
+
+		private static void RenderOrGroupClassAndSingleProperty( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		{
+			//Boolean noGroupChildren = g.Members.All( m => m.Group == null );
+			//if( !noGroupChildren ) throw new ArgumentException( "Group must not have any group members." );
+
+			String propertyName  = String.Join( "_or_", g.Members.Select( m => m.Symbol != null ? m.GetCSharpSymbol() : "Group" ) );
+			String comment       = String.Join( " | " , g.Members.Select( m => m.Symbol != null ? m.GetCSharpSymbol() : "Group" ) );
+			String groupTypeName = propertyName + "Group";
+
+			///////////////////////
+
+			w.WriteLine( "\t\tpublic class {0}".PrefixTabs( depth ), groupTypeName );
+			w.WriteLine( "\t\t{".PrefixTabs( depth ) );
+
+			foreach( GroupMember member in g.Members )
+			{
+				if( member.Group != null )
+				{
+					RenderGroup( ctx, member.Group, w, depth + 1 );
+				}
+				else
+				{
+					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth + 1 );
+				}
+			}
+
+			w.WriteLine( "\t\t".PrefixTabs( depth ) );
+			w.WriteLine( "\t\t}".PrefixTabs( depth ) );
+
+			///////////////////////
+
+			w.WriteLine( "\t\tpublic {0} {1} {{ get; set; }} // {2} (Mix of elements and groups)".PrefixTabs( depth ), groupTypeName, propertyName, comment );
 		}
 
 		private static void RenderAndGroupClassAndListProperty( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
@@ -684,41 +722,6 @@ namespace SgmlClasses
 			}
 
 			w.WriteLine( "\t\tpublic {0} {1} {{ get; set; }}".PrefixTabs( depth ), typeName, m.GetCSharpSymbol() );
-		}
-
-		private static void RenderRepeatingGroup( SgmlDtd dtd, Dictionary<String,ParameterEntityMetadata> parameterEntityMetadatas, Group g, StreamWriter w )
-		{
-			if( g.TextOnly ) throw new InvalidOperationException( "Repeating group that's TextOnly. This should never happen." );
-
-			if( g.Members.Count == 0 )
-			{
-				throw new InvalidOperationException( "Repeating group with zero members. This should never happen." );
-			}
-			else if( g.Members.Count == 1 )
-			{
-				w.WriteLine( "\t\t// g.Members.Count == 1. Symbol: {0}. Group: {1}. Occurrence: {2}.",  g.Members[0].Symbol, g.Members[0].Group == null ? "null" : "Group", g.Occurrence );
-
-				GroupMember member = g.Members[0];
-				if( member.Group == null )
-				{
-					// Symbol member, not a Group member:
-					w.WriteLine( "\t\tpublic List<{0}> {1} {{ get; set; }} = new List<{0}>();", member.Symbol, member.Symbol + "Values" );
-				}
-				else
-				{
-					// Sub-Group member:
-					//RenderGroup( dtd, parameterEntityMetadatas, member.Group, w );
-					Group subGroup = member.Group;
-
-					w.WriteLine( "// TODO. Sub-group repeated {0}. TextOnly: {1}. Members.Count: {2}", subGroup.Occurrence, subGroup.TextOnly, subGroup.Members.Count );
-				}
-
-				
-			}
-			else // g.Members.Count > 1
-			{
-				w.WriteLine( "// TODO. Members.Count == {0}", g.Members.Count );
-			}
 		}
 
 		//private static void RenderRepeatingGroup
