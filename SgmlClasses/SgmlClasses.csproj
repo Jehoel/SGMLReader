@@ -42,6 +42,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ElementRenderer.cs" />
+    <Compile Include="EnumRenderer.cs" />
+    <Compile Include="GroupRenderer.cs" />
     <Compile Include="Metadata.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
