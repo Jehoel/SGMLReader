@@ -84,6 +84,7 @@ namespace SgmlClasses
 				w.WriteLine( "using System;" );
 				w.WriteLine( "using System.Collections.Generic;" );
 				w.WriteLine( "using System.ComponentModel.DataAnnotations;" );
+				w.WriteLine( "using System.Xml;" );
 				w.WriteLine();
 				w.WriteLine( "namespace MyNamespace" );
 				w.WriteLine( "{" );

@@ -110,10 +110,7 @@ namespace SgmlClasses
 			Boolean allChildrenAreElementClasses = g.Members.All( m => m.Group == null && ElementRenderer.ShouldRenderElementAsClass( ctx.Dtd.Elements[m.Symbol] ) );
 			if( allChildrenAreElementClasses )
 			{
-				String propertyName = String.Join( "_or_", g.Members.Select( m => m.GetCSharpSymbol() ) );
-				String comment      = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
-
-				w.WriteLine( "\t\tpublic Element {0} {{ get; set; }} // {1}".PrefixTabs(depth), propertyName, comment );
+				RenderGroupClassAndSingleProperty( ctx, g, w, depth );
 			}
 			else
 			{
@@ -127,7 +124,7 @@ namespace SgmlClasses
 				}
 				else
 				{
-					RenderOrGroupClassAndSingleProperty( ctx, g, w, depth + 1 );
+					RenderGroupClassAndSingleProperty( ctx, g, w, depth + 1 );
 				}
 			}
 		}
@@ -148,7 +145,7 @@ namespace SgmlClasses
 				}
 				else if( member.Symbol != null )
 				{
-					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth );
+					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth + 1 );
 				}
 			}
 		}
@@ -168,7 +165,7 @@ namespace SgmlClasses
 				}
 				else if( member.Symbol != null )
 				{
-					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth );
+					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth + 1 );
 				}
 			}
 			else
@@ -199,10 +196,7 @@ namespace SgmlClasses
 			Boolean allChildrenAreElementClasses = g.Members.All( m => m.Group == null && ElementRenderer.ShouldRenderElementAsClass( ctx.Dtd.Elements[m.Symbol] ) );
 			if( allChildrenAreElementClasses )
 			{
-				String propertyName = String.Join( "_or_", g.Members.Select( m => m.GetCSharpSymbol() ) );
-				String comment      = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
-
-				w.WriteLine( "\t\tpublic Element {0} {{ get; set; }} // {1}".PrefixTabs(depth), propertyName, comment );
+				RenderGroupClassAndSingleProperty( ctx, g, w, depth );
 			}
 			else
 			{
@@ -220,7 +214,7 @@ namespace SgmlClasses
 
 					// Render a class for this group that uses a class `Group` to represent any group children:
 
-					RenderOrGroupClassAndSingleProperty( ctx, g, w, depth + 1 );
+					RenderGroupClassAndSingleProperty( ctx, g, w, depth + 1 );
 				}
 			}
 
@@ -246,90 +240,63 @@ namespace SgmlClasses
 
 		private static void RenderGroup_ZeroOrMore_None( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_None - TODO".PrefixTabs( depth ) );
+			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_None".PrefixTabs( depth ) );
+
+			RenderGroupClassAndListProperty( ctx, g, w, depth );
 		}
 
 		private static void RenderGroup_ZeroOrMore_And( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_And - TODO".PrefixTabs( depth ) );
+			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_And".PrefixTabs( depth ) );
+
+			RenderGroupClassAndListProperty( ctx, g, w, depth );
 		}
 
 		private static void RenderGroup_ZeroOrMore_Or( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_Or - TODO".PrefixTabs( depth ) );
+			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_Or".PrefixTabs( depth ) );
+
+			RenderGroupClassAndListProperty( ctx, g, w, depth );
 		}
 
 		private static void RenderGroup_ZeroOrMore_Sequence( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_Sequence - TODO".PrefixTabs( depth ) );
+			w.WriteLine( "\t\t// RenderGroup_ZeroOrMore_Sequence".PrefixTabs( depth ) );
+
+			RenderGroupClassAndListProperty( ctx, g, w, depth );
 		}
 
 
 
 		private static void RenderGroup_OneOrMore_None( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\t// RenderGroup_OneOrMore_None - TODO".PrefixTabs( depth ) );
+			w.WriteLine( "\t\t// RenderGroup_OneOrMore_None".PrefixTabs( depth ) );
+
+			RenderGroupClassAndListProperty( ctx, g, w, depth );
 		}
 
 		private static void RenderGroup_OneOrMore_And( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\t// RenderGroup_OneOrMore_And - TODO".PrefixTabs( depth ) );
+			w.WriteLine( "\t\t// RenderGroup_OneOrMore_And".PrefixTabs( depth ) );
+
+			RenderGroupClassAndListProperty( ctx, g, w, depth );
 		}
 
 		private static void RenderGroup_OneOrMore_Or( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
 			w.WriteLine( "\t\t// RenderGroup_OneOrMore_Or".PrefixTabs( depth ) );
 
-			Boolean noGroupChildren = g.Members.All( m => m.Group == null );
-			if( noGroupChildren )
-			{
-				RenderOrGroupClassAndListProperty( ctx, g, w, depth );
-			}
-			else
-			{
-				w.WriteLine( "\t\t// RenderGroup_OneOrMore_Or - TODO (Non-element children)".PrefixTabs( depth ) );
-			}
-
-			w.WriteLine();
+			RenderGroupClassAndListProperty( ctx, g, w, depth );
 		}
 
 		private static void RenderGroup_OneOrMore_Sequence( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\t// RenderGroup_OneOrMore_Sequence - TODO".PrefixTabs( depth ) );
+			w.WriteLine( "\t\t// RenderGroup_OneOrMore_Sequence".PrefixTabs( depth ) );
+
+			RenderGroupClassAndListProperty( ctx, g, w, depth );
 		}
 
 		#region Render
-
-		// TODO: These can be simplified down to a single "RenderGroupAsClass" method and then put that class-ref into a List.
-
-		private static void RenderAndGroupClassAndListProperty( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
-		{
-			Boolean noGroupChildren = g.Members.All( m => m.Group == null );
-			if( !noGroupChildren ) throw new ArgumentException( "Group must not have any group members." );
-
-			String propertyName  = String.Join( "_and_", g.Members.Select( m => m.GetCSharpSymbol() ) );
-			String comment       = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
-			String groupTypeName = propertyName + "Group";
-
-			///////////////////////
-
-			w.WriteLine( "\t\tpublic class {0}".PrefixTabs( depth ), groupTypeName );
-			w.WriteLine( "\t\t{".PrefixTabs( depth ) );
-
-			foreach( GroupMember member in g.Members )
-			{
-				if( member.Group != null ) throw new InvalidOperationException( "This should never happen." );
-
-				RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth + 1 );
-			}
-
-			w.WriteLine( "\t\t".PrefixTabs( depth ) );
-			w.WriteLine( "\t\t}".PrefixTabs( depth ) );
-
-			///////////////////////
-
-			w.WriteLine( "\t\tpublic List<{0}> {1} {{ get; set; }} = new List<{0}>(); // {2} (All elements)".PrefixTabs( depth ), groupTypeName, propertyName, comment );
-		}
 
 		private static void RenderGroupMemberSymbolAsScalarProperty( RenderContext ctx, GroupMember member, StreamWriter w, Int32 depth )
 		{
@@ -358,43 +325,49 @@ namespace SgmlClasses
 			}
 		}
 
-		private static void RenderOrGroupClassAndListProperty( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		private static void RenderGroupClassAndListProperty( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			Boolean noGroupChildren = g.Members.All( m => m.Group == null );
-			if( !noGroupChildren ) throw new ArgumentException( "Group must not have any group members." );
+			RenderGroupAsClass( ctx, g, w, depth, out String groupTypeName, out String propertyName, out String comment );
 
-			String propertyName  = String.Join( "_or_", g.Members.Select( m => m.GetCSharpSymbol() ) );
-			String comment       = String.Join( " | ", g.Members.Select( m => m.GetCSharpSymbol() ) );
-			String groupTypeName = propertyName + "Group";
-
-			///////////////////////
-
-			w.WriteLine( "\t\tpublic class {0}".PrefixTabs( depth ), groupTypeName );
-			w.WriteLine( "\t\t{".PrefixTabs( depth ) );
-
-			foreach( GroupMember member in g.Members )
-			{
-				if( member.Group != null ) throw new InvalidOperationException( "This should never happen." );
-
-				RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth + 1 );
-			}
-
-			w.WriteLine( "\t\t".PrefixTabs( depth ) );
-			w.WriteLine( "\t\t}".PrefixTabs( depth ) );
-
-			///////////////////////
-
-			w.WriteLine( "\t\tpublic List<{0}> {1} {{ get; set; }} = new List<{0}>(); // {2} (All elements)".PrefixTabs( depth ), groupTypeName, propertyName, comment );
+			w.WriteLine( "\t\tpublic List<{0}> {1} {{ get; set; }} = new List<{0}>(); // {2}".PrefixTabs( depth ), groupTypeName, propertyName, comment );
 		}
 
-		private static void RenderOrGroupClassAndSingleProperty( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
+		private static void RenderGroupClassAndSingleProperty( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			//Boolean noGroupChildren = g.Members.All( m => m.Group == null );
-			//if( !noGroupChildren ) throw new ArgumentException( "Group must not have any group members." );
+			RenderGroupAsClass( ctx, g, w, depth, out String groupTypeName, out String propertyName, out String comment );
 
-			String propertyName  = String.Join( "_or_", g.Members.Select( m => m.Symbol != null ? m.GetCSharpSymbol() : "Group" ) );
-			String comment       = String.Join( " | " , g.Members.Select( m => m.Symbol != null ? m.GetCSharpSymbol() : "Group" ) );
-			String groupTypeName = propertyName + "Group";
+			w.WriteLine( "\t\tpublic {0} {1} {{ get; set; }} // {2}".PrefixTabs( depth ), groupTypeName, propertyName, comment );
+		}
+
+		private static void RenderGroupAsClass( RenderContext ctx, Group g, StreamWriter w, Int32 depth, out String groupTypeName, out String propertyName, out String comment )
+		{
+			String sepProperty;
+			String sepComment;
+			switch( g.GroupType )
+			{
+			case GroupType.And:
+				sepProperty = "_and_";
+				sepComment = " & ";
+				break;
+			case GroupType.None:
+				sepProperty = "_none_";
+				sepComment = " ";
+				break;
+			case GroupType.Or:
+				sepProperty = "_or_";
+				sepComment = " | ";
+				break;
+			case GroupType.Sequence:
+				sepProperty = "_seq_";
+				sepComment = ", ";
+				break;
+			default:
+				throw new ArgumentException();
+			}
+
+			propertyName  = String.Join( sepProperty, g.Members.Select( m => m.Symbol != null ? m.GetCSharpSymbol() : "Group" ) ); // NOTE: This is incorrect because it only looks at the first-level children of the group to determine the group's name.
+			comment       = String.Join( sepComment , g.Members.Select( m => m.Symbol != null ? m.GetCSharpSymbol() : "Group" ) );
+			groupTypeName = propertyName + "_Group";
 
 			///////////////////////
 
@@ -413,12 +386,27 @@ namespace SgmlClasses
 				}
 			}
 
+			w.WriteLine();
+
+			if( g.GroupType == GroupType.Or )
+			{
+				LoaderRenderer.RenderGroupOrLoadMethod( ctx, g, w, depth );
+			}
+			else if( g.GroupType == GroupType.And )
+			{
+				LoaderRenderer.RenderGroupAndLoadMethod( ctx, g, w, depth );
+			}
+			else if( g.GroupType == GroupType.Sequence )
+			{
+				LoaderRenderer.RenderGroupSequenceLoadMethod( ctx, g, w, depth );
+			}
+			else if( g.GroupType == GroupType.None )
+			{
+				LoaderRenderer.RenderGroupNoneLoadMethod( ctx, g, w, depth );
+			}
+
 			w.WriteLine( "\t\t".PrefixTabs( depth ) );
 			w.WriteLine( "\t\t}".PrefixTabs( depth ) );
-
-			///////////////////////
-
-			w.WriteLine( "\t\tpublic {0} {1} {{ get; set; }} // {2} (Mix of elements and groups)".PrefixTabs( depth ), groupTypeName, propertyName, comment );
 		}
 
 		private static void RenderParameterEntityProperty( StreamWriter w, GroupMember m, ParameterEntityMetadata pe, Int32 depth )

@@ -64,8 +64,8 @@ namespace SgmlClasses
 			w.WriteLine( "\tpublic class {0} : Element", el.GetCSharpName() );
 			w.WriteLine( "\t{" );
 			w.WriteLine( "\t\tinternal const String TagNameStr = \"{0}\";", el.Name );
-			w.WriteLine( "\t\tpublic static String TagName => NameStr;" );
-			w.WriteLine( "\t\tpublic {0}() : base( NameStr ) {{}}", el.GetCSharpName() );
+			w.WriteLine( "\t\tpublic static String TagName => TagNameStr;" );
+			w.WriteLine( "\t\tpublic {0}() : base( TagNameStr ) {{}}", el.GetCSharpName() );
 			w.WriteLine();
 
 			if( el.Attributes != null )
@@ -85,6 +85,9 @@ namespace SgmlClasses
 				case DeclaredContent.Default:
 
 					GroupRenderer.RenderGroup( ctx, el.ContentModel.Group, w, depth: 0 );
+
+					LoaderRenderer.RenderElementLoadMethod( ctx, el.ContentModel.Group, w, depth: 0 );
+
 					break;
 
 				case DeclaredContent.EMPTY:
