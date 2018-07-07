@@ -38,11 +38,15 @@ namespace Sgml {
 	{
         public GroupMember(Group group)
 		{
+            if( group == null ) throw new ArgumentNullException(nameof(group));
+
             this.Group = group;
 		}
 
         public GroupMember(String symbol)
 		{
+            if( String.IsNullOrWhiteSpace(symbol) ) throw new ArgumentNullException(nameof(symbol));
+
             this.Symbol = symbol;
 		}
 
@@ -55,11 +59,7 @@ namespace Sgml {
     /// </summary>
     public class Group
     {
-        private Group m_parent;
-        private List<GroupMember> m_members;
-        private GroupType m_groupType;
-        private Occurrence m_occurrence;
-        private bool Mixed;
+        private readonly List<GroupMember> members;
 
         /// <summary>
         /// Initialises a new Content Model Group.
@@ -67,26 +67,15 @@ namespace Sgml {
         /// <param name="parent">The parent model group.</param>
         public Group(Group parent)
         {
-            m_parent = parent;
-            m_members = new List<GroupMember>();
-            m_groupType = GroupType.None;
-            m_occurrence = Occurrence.Required;
+            this.Parent     = parent;
+            this.members    = new List<GroupMember>();
+            this.GroupType  = GroupType.None;
+            this.Occurrence = Occurrence.Required;
         }
 
-        public IReadOnlyList<GroupMember> Members => this.m_members;
+        public IReadOnlyList<GroupMember> Members => this.members;
 
-        /// <summary>
-        /// The <see cref="Occurrence"/> of this group.
-        /// </summary>
-        public Occurrence Occurrence
-        {
-            get
-            {
-                return m_occurrence;
-            }
-        }
-
-        public Boolean OccurrenceIsOnce => ( this.Occurrence == Occurrence.Required ) || ( this.Occurrence == Occurrence.Optional );
+        public Occurrence Occurrence { get; private set; }
 
         public Entity CurrentEntity { get; set; }
 
@@ -98,30 +87,26 @@ namespace Sgml {
         {
             get
             {
-                return this.Mixed && m_members.Count == 0;
+                return this.Mixed && this.Members.Count == 0;
             }
         }
 
         /// <summary>
         /// The parent group of this group.
         /// </summary>
-        public Group Parent
-        {
-            get
-            {
-                return m_parent;
-            }
-        }
+        public Group Parent { get; private set; }
 
-        public GroupType GroupType => this.m_groupType;
-        
+        public GroupType GroupType { get; private set; }
+
+        public Boolean Mixed { get; private set; }
+
         /// <summary>
         /// Adds a new child model group to the end of the group's members.
         /// </summary>
         /// <param name="g">The model group to add.</param>
         public void AddGroup(Group g)
         {
-            m_members.Add( new GroupMember( g ) );
+            this.members.Add( new GroupMember( g ) );
         }
 
         /// <summary>
@@ -132,11 +117,11 @@ namespace Sgml {
         {
             if (string.Equals(sym, "#PCDATA", StringComparison.OrdinalIgnoreCase)) 
             {               
-                Mixed = true;
+                this.Mixed = true;
             } 
             else 
             {
-                m_members.Add( new GroupMember( sym ) );
+                this.members.Add( new GroupMember( sym ) );
             }
         }
 
@@ -150,7 +135,7 @@ namespace Sgml {
         /// </exception>
         public void AddConnector(char c)
         {
-            if (!Mixed && m_members.Count == 0) 
+            if (!this.Mixed && this.members.Count == 0) 
             {
                 throw new SgmlParseException(string.Format(CultureInfo.CurrentUICulture, "Missing token before connector '{0}'.", c));
             }
@@ -169,12 +154,12 @@ namespace Sgml {
                     break;
             }
 
-            if (this.m_groupType != GroupType.None && this.m_groupType != gt) 
+            if (this.GroupType != GroupType.None && this.GroupType != gt) 
             {
-                throw new SgmlParseException(string.Format(CultureInfo.CurrentUICulture, "Connector '{0}' is inconsistent with {1} group.", c, m_groupType.ToString()));
+                throw new SgmlParseException( String.Format( CultureInfo.CurrentUICulture, "Connector '{0}' is inconsistent with {1} group.", c, this.GroupType.ToString() ) );
             }
 
-            m_groupType = gt;
+            this.GroupType = gt;
         }
 
         /// <summary>
@@ -197,7 +182,7 @@ namespace Sgml {
                     break;
             }
 
-            m_occurrence = o;
+            this.Occurrence = o;
         }
 
         /// <summary>
@@ -215,7 +200,7 @@ namespace Sgml {
                 throw new ArgumentNullException("dtd");
 
             // Do a simple search of members.
-            foreach (GroupMember obj in m_members) 
+            foreach (GroupMember obj in members) 
             {
                 if (obj.Symbol != null)
                 {
@@ -225,7 +210,7 @@ namespace Sgml {
             }
             // didn't find it, so do a more expensive search over child elements
             // that have optional start tags and over child groups.
-            foreach (GroupMember obj in m_members) 
+            foreach (GroupMember obj in members) 
             {
                 if (obj.Symbol != null)
                 {
