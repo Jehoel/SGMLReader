@@ -10,8 +10,12 @@ namespace SgmlClasses
 {
 	public static class LoaderRenderer
 	{
+		public static Boolean IsEnabled = false;
+
 		public static void RenderElementLoadMethod( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
+			if( !IsEnabled ) return;
+
 			if( g.GroupType == GroupType.Or )
 			{
 				RenderGroupOrLoadMethod( ctx, g, w, depth );
@@ -59,6 +63,8 @@ namespace SgmlClasses
 
 		public static void RenderGroupOrLoadMethod( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
+			if( !IsEnabled ) return;
+
 			w.WriteLine( "public void Load( XmlElement e )".PrefixTabs(depth) );
 			w.WriteLine( "{".PrefixTabs(depth) );
 
@@ -97,6 +103,7 @@ namespace SgmlClasses
 
 		public static void RenderGroupAndLoadMethod( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
+			if( !IsEnabled ) return;
 
 			w.WriteLine( "public void Load( XmlElement e )".PrefixTabs(depth) );
 			w.WriteLine( "{".PrefixTabs(depth) );
@@ -118,6 +125,8 @@ namespace SgmlClasses
 
 		public static void RenderGroupSequenceLoadMethod( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
+			if( !IsEnabled ) return;
+
 			w.WriteLine( "public void Load( XmlElement e )".PrefixTabs(depth) );
 			w.WriteLine( "{".PrefixTabs(depth) );
 
@@ -138,6 +147,8 @@ namespace SgmlClasses
 
 		public static void RenderGroupNoneLoadMethod( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
+			if( !IsEnabled ) return;
+
 			w.WriteLine( "public void Load( XmlElement e )".PrefixTabs(depth) );
 			w.WriteLine( "{".PrefixTabs(depth) );
 
