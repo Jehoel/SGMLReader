@@ -59,8 +59,8 @@ namespace SgmlClasses
 
 		public static void RenderGroupOrLoadMethod( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\tpublic void Load( XmlElement e )".PrefixTabs(depth) );
-			w.WriteLine( "\t\t{".PrefixTabs(depth) );
+			w.WriteLine( "public void Load( XmlElement e )".PrefixTabs(depth) );
+			w.WriteLine( "{".PrefixTabs(depth) );
 
 			// For the case where all children are elements then the solution is simple:
 			// But how to do it for non-trivial cases? e.g. nested groups with optional leading members?
@@ -70,7 +70,7 @@ namespace SgmlClasses
 				Boolean first = true;
 				foreach( GroupMember member in g.Members )
 				{
-					w.Write( "\t\t\t\t".PrefixTabs(depth) );
+					w.Write( "\t\t".PrefixTabs(depth) );
 					if( !first )
 					{
 						w.Write( "else " );
@@ -81,10 +81,10 @@ namespace SgmlClasses
 					}
 
 					w.WriteLine(       "if( e.Name == {0}.TagName )", member.GetCSharpSymbol() );
-					w.WriteLine( "\t\t\t\t{".PrefixTabs(depth) );
-					w.WriteLine( "\t\t\t\t\tthis.{0} = new {0}();".PrefixTabs(depth), member.GetCSharpSymbol() );
-					w.WriteLine( "\t\t\t\t\tthis.{0}.Load( e );".PrefixTabs(depth), member.GetCSharpSymbol() );
-					w.WriteLine( "\t\t\t\t}".PrefixTabs(depth) );
+					w.WriteLine( "\t\t{".PrefixTabs(depth) );
+					w.WriteLine( "\t\t\tthis.{0} = new {0}();".PrefixTabs(depth), member.GetCSharpSymbol() );
+					w.WriteLine( "\t\t\tthis.{0}.Load( e );".PrefixTabs(depth), member.GetCSharpSymbol() );
+					w.WriteLine( "\t\t}".PrefixTabs(depth) );
 				}
 			}
 			else
@@ -92,13 +92,14 @@ namespace SgmlClasses
 				w.WriteLine( "// TODO: Group with OR children.".PrefixTabs(depth) );
 			}
 
-			w.WriteLine( "\t\t}".PrefixTabs(depth) );
+			w.WriteLine( "}".PrefixTabs(depth) );
 		}
 
 		public static void RenderGroupAndLoadMethod( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\tpublic void Load( XmlElement e )".PrefixTabs(depth) );
-			w.WriteLine( "\t\t{".PrefixTabs(depth) );
+
+			w.WriteLine( "public void Load( XmlElement e )".PrefixTabs(depth) );
+			w.WriteLine( "{".PrefixTabs(depth) );
 
 			if( g.Members.All( m => m.Symbol != null ) )
 			{
@@ -112,13 +113,13 @@ namespace SgmlClasses
 				w.WriteLine( "// TODO: Group with OR children.".PrefixTabs(depth) );
 			}
 
-			w.WriteLine( "\t\t}".PrefixTabs(depth) );
+			w.WriteLine( "}".PrefixTabs(depth) );
 		}
 
 		public static void RenderGroupSequenceLoadMethod( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\tpublic void Load( XmlElement e )".PrefixTabs(depth) );
-			w.WriteLine( "\t\t{".PrefixTabs(depth) );
+			w.WriteLine( "public void Load( XmlElement e )".PrefixTabs(depth) );
+			w.WriteLine( "{".PrefixTabs(depth) );
 
 			if( g.Members.All( m => m.Symbol != null ) )
 			{
@@ -132,17 +133,17 @@ namespace SgmlClasses
 				w.WriteLine( "// TODO: Group with OR children.".PrefixTabs(depth) );
 			}
 
-			w.WriteLine( "\t\t}".PrefixTabs(depth) );
+			w.WriteLine( "}".PrefixTabs(depth) );
 		}
 
 		public static void RenderGroupNoneLoadMethod( RenderContext ctx, Group g, StreamWriter w, Int32 depth )
 		{
-			w.WriteLine( "\t\tpublic void Load( XmlElement e )".PrefixTabs(depth) );
-			w.WriteLine( "\t\t{".PrefixTabs(depth) );
+			w.WriteLine( "public void Load( XmlElement e )".PrefixTabs(depth) );
+			w.WriteLine( "{".PrefixTabs(depth) );
 
 			w.WriteLine( "// TODO - Group with NONE children.".PrefixTabs(depth) );
 
-			w.WriteLine( "\t\t}".PrefixTabs(depth) );
+			w.WriteLine( "}".PrefixTabs(depth) );
 		}
 	}
 }

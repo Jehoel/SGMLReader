@@ -121,7 +121,7 @@ namespace SgmlClasses
 
 		public static String PrefixTabs(this String str, Int32 depth)
 		{
-			String prefix = "".PadLeft( depth, '\t' );
+			String prefix = "".PadLeft( 2 + depth, '\t' );
 			return prefix + str;
 		}
 	}
