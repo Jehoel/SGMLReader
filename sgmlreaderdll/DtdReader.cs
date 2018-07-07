@@ -698,6 +698,9 @@ namespace Sgml
                 if (ch == '%') 
                 {
                     Entity e = ParseParameterEntity(SgmlDtd.cmterm);
+                    
+                    if( cm.Group != null && cm.Group.CurrentEntity == null ) cm.Group.CurrentEntity = e;
+
                     PushEntity(this.m_current.ResolvedUri, e);
                     ParseModel(Entity.EOF, cm);
                     PopEntity();                    
@@ -706,10 +709,10 @@ namespace Sgml
                 else if (ch == '(') 
                 {
                     cm.PushGroup();
-                    if(this.m_current is Entity currentEntity)
-                    {
-                        cm.Group.CurrentEntity = currentEntity;
-                    }
+                    //if(this.m_current is Entity currentEntity)
+                    //{
+                    //    cm.Group.CurrentEntity = currentEntity;
+                    //}
                     this.m_current.ReadChar();// consume '('
                     ch = this.m_current.SkipWhitespace();
                 }
