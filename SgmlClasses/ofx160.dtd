@@ -3392,7 +3392,7 @@
 <!ELEMENT MKTGINFO  - o %INFOTYPE>
 
 <!-- Include flag -->
-<!ELEMENT INCLUDE  - o (%BOOLTYPE;) >
+<!ELEMENT INCLUDE  - o %BOOLTYPE>
 
 
 <!-- ============================================================================= -->
