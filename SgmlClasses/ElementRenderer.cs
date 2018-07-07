@@ -29,6 +29,29 @@ namespace SgmlClasses
 
 				RenderElementClass( ctx, el, w );
 			}
+
+			w.WriteLine();
+			w.WriteLine( @"
+	public static class Elements
+	{
+		public static Element Create( String tagName )
+		{
+			switch( tagName )
+			{");
+
+			foreach( ElementDecl el in ctx.Dtd.Elements.Values )
+			{
+				if( !ShouldRenderElementAsClass( el ) ) continue;
+
+				w.WriteLine( @"			case ""{0}"": return new {0}();", el.Name );
+			}
+
+			w.WriteLine( @"
+			default: return null;
+			}
+		}
+	}
+" );
 		}
 
 		public static Boolean ShouldRenderElementAsClass( ElementDecl el )
