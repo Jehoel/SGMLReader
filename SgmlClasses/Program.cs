@@ -21,6 +21,8 @@ namespace SgmlClasses
 
 		public SgmlDtd Dtd { get; }
 		public Dictionary<String,ParameterEntityMetadata> ParameterEntityMetadatas { get; }
+
+		
 	}
 
 	public class Program
