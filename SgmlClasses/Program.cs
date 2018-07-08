@@ -8,23 +8,6 @@ using Sgml;
 
 namespace SgmlClasses
 {
-	// TODO: Modify SgmlReader's DtdReader to include entity information in ElementDecl or its ContentModel.
-	// e.g.  after reading `<!ELEMENT DTUSER	- o %DTTMTYPE>` from the DTD, the internal object model doesn't mention `DTTMTYPE` anywhere...
-
-	public class RenderContext
-	{
-		public RenderContext(SgmlDtd dtd, Dictionary<String, ParameterEntityMetadata> parameterEntityMetadatas)
-		{
-			this.Dtd = dtd;
-			this.ParameterEntityMetadatas = parameterEntityMetadatas;
-		}
-
-		public SgmlDtd Dtd { get; }
-		public Dictionary<String,ParameterEntityMetadata> ParameterEntityMetadatas { get; }
-
-		
-	}
-
 	public class Program
 	{
 		public static void Main(String[] args)
