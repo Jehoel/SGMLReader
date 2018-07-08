@@ -409,7 +409,7 @@ namespace SgmlClasses
 				{
 					RenderGroup( ctx, member.Group, w, depth + 1 );
 				}
-				else
+				else if( member.Symbol != null )
 				{
 					RenderGroupMemberSymbolAsScalarProperty( ctx, member, w, depth + 1 );
 				}

@@ -54,6 +54,14 @@ namespace SgmlClasses
 " );
 		}
 
+		public static void RenderMacrosAsClasses( RenderContext ctx, StreamWriter w )
+		{
+			foreach( Entity m in ctx.Dtd.ParsedEntities.Values )
+			{
+				
+			}
+		}
+
 		public static Boolean ShouldRenderElementAsClass( ElementDecl el )
 		{
 			if( el.Attributes?.Count > 0 ) return true;
